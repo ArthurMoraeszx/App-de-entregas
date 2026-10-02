@@ -1,0 +1,66 @@
+diff --git a/node_modules/react-native-document-scanner-plugin/android/src/main/java/com/documentscanner/DocumentScannerModule.kt b/node_modules/react-native-document-scanner-plugin/android/src/main/java/com/documentscanner/DocumentScannerModule.kt
+index fbb6836..8bf1816 100644
+--- a/node_modules/react-native-document-scanner-plugin/android/src/main/java/com/documentscanner/DocumentScannerModule.kt
++++ b/node_modules/react-native-document-scanner-plugin/android/src/main/java/com/documentscanner/DocumentScannerModule.kt
+@@ -47,7 +47,6 @@ class DocumentScannerModule(reactContext: ReactApplicationContext) :
+ 
+   override fun scanDocument(options: ReadableMap, promise: Promise) {
+     val currentActivity = reactApplicationContext.getCurrentActivity()
+-    val response: WritableMap = WritableNativeMap()
+ 
+     val documentScannerOptionsBuilder = GmsDocumentScannerOptions.Builder()
+       .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+@@ -65,14 +64,22 @@ class DocumentScannerModule(reactContext: ReactApplicationContext) :
+       100
+     }
+ 
++    // Unique key per invocation avoids stale result dispatch from a prior registration
++    val scanKey = "document-scanner-${System.currentTimeMillis()}"
++    var promiseSettled = false
++
+     val scanner: GmsDocumentScanner =
+       GmsDocumentScanning.getClient(documentScannerOptionsBuilder.build())
+     val scannerLauncher: ActivityResultLauncher<IntentSenderRequest?> =
+       (currentActivity as ComponentActivity).activityResultRegistry.register(
+-        "document-scanner",
++        scanKey,
+         StartIntentSenderForResult(),
+         { result ->
++          if (promiseSettled) return@register
++          promiseSettled = true
++
+           if (result.resultCode == Activity.RESULT_OK) {
++            val response: WritableMap = WritableNativeMap()
+             val documentScanningResult: GmsDocumentScanningResult? =
+               GmsDocumentScanningResult.fromActivityResultIntent(
+                 result.data
+@@ -96,6 +103,7 @@ class DocumentScannerModule(reactContext: ReactApplicationContext) :
+                         this.getImageInBase64(currentActivity, croppedImageUri, croppedImageQuality)
+                     } catch (error: FileNotFoundException) {
+                       promise.reject("document scan error", error.message)
++                      return@register
+                     }
+                   }
+ 
+@@ -104,16 +112,14 @@ class DocumentScannerModule(reactContext: ReactApplicationContext) :
+               }
+             }
+ 
+-            response.putArray(
+-              "scannedImages",
+-              docScanResults
+-            )
++            response.putArray("scannedImages", docScanResults)
+             response.putString("status", "success")
+             promise.resolve(response)
+           } else if (result.resultCode == Activity.RESULT_CANCELED) {
+-            // when user cancels document scan
+-            response.putString("status", "cancel")
+-            promise.resolve(response)
++            // Fresh map — never reuse a map that may have been passed to resolve() before
++            val cancelResponse: WritableMap = WritableNativeMap()
++            cancelResponse.putString("status", "cancel")
++            promise.resolve(cancelResponse)
+           }
+         }
+       )

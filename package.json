@@ -1,0 +1,20 @@
+{
+  "name": "rota-escolar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Projeto Rota Escolar: API (server) e aplicativo (app) rodando juntos",
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix app install && npm --prefix server run seed",
+    "dev": "concurrently --names \"API,APP\" --prefix-colors \"cyan.bold,magenta.bold\" \"npm --prefix server run dev\" \"npm --prefix app run web\"",
+    "seed": "npm --prefix server run seed",
+    "seed:reset": "npm --prefix server run seed:reset",
+    "smoke": "npm --prefix server run smoke",
+    "api": "npm --prefix server run dev",
+    "api:node22": "npm --prefix server run start:node22",
+    "app": "npm --prefix app run web",
+    "android": "npm --prefix app run android"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
